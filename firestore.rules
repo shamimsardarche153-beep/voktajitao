@@ -1,0 +1,317 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable Hardened Helpers
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.size() >= 3 && email.size() <= 160 && email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedSignedIn() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdminEmail() {
+      return isVerifiedSignedIn() &&
+        request.auth.token.email is string &&
+        request.auth.token.email.lower() in [
+          'saifulislam14720@gmail.com',
+          'shamimsardarche153@gmail.com'
+        ];
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdminEmail() || (
+        isVerifiedSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Validation Blueprints
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+          'title', 'category', 'regularPrice', 'price', 'shortFeature',
+          'description', 'features', 'imageUrl', 'inStock', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'title', 'category', 'regularPrice', 'price', 'shortFeature',
+          'description', 'features', 'imageUrl', 'inStock', 'createdAt', 'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 120
+        && data.category in ['electronics', 'cosmetics', 'clothing', 'problem-solving']
+        && data.regularPrice is number && data.regularPrice > 0 && data.regularPrice <= 1000000
+        && data.price is number && data.price > 0 && data.price <= data.regularPrice
+        && data.shortFeature is string && data.shortFeature.size() >= 2 && data.shortFeature.size() <= 140
+        && data.description is string && data.description.size() >= 5 && data.description.size() <= 2000
+        && data.features is list && data.features.size() <= 8
+        && (data.features.size() == 0 || (data.features[0] is string && data.features[0].size() <= 120))
+        && data.imageUrl is string && data.imageUrl.size() >= 5 && data.imageUrl.size() <= 500
+        && data.inStock is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserAccount(data) {
+      return data.keys().hasAll([
+          'uid', 'email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'photoURL', 'provider', 'createdAt', 'lastLoginAt'
+        ])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
+        && isValidEmail(data.email)
+        && data.displayName is string && data.displayName.size() <= 120
+        && data.photoURL is string && data.photoURL.size() <= 500
+        && data.provider == 'google.com'
+        && data.createdAt is timestamp
+        && data.lastLoginAt is timestamp;
+    }
+
+    function isValidCustomerProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'name', 'phone', 'address', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'name', 'phone', 'address', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
+        && data.email is string && data.email.size() <= 160
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.phone is string && data.phone.size() >= 6 && data.phone.size() <= 25
+        && data.phone.matches('^[0-9+\\-\\s()]{6,25}$')
+        && data.address is string && data.address.size() >= 5 && data.address.size() <= 300
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+          'customerUid', 'customerName', 'phone', 'address', 'deliveryZone',
+          'deliveryCharge', 'subtotal', 'totalAmount', 'note', 'items',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'customerUid', 'customerName', 'phone', 'address', 'deliveryZone',
+          'deliveryCharge', 'subtotal', 'totalAmount', 'note', 'items',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && data.customerUid is string && data.customerUid.size() <= 128
+        && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 80
+        && data.phone is string && data.phone.size() >= 6 && data.phone.size() <= 25
+        && data.phone.matches('^[0-9+\\-\\s()]{6,25}$')
+        && data.address is string && data.address.size() >= 5 && data.address.size() <= 300
+        && data.deliveryZone in ['inside_dhaka', 'outside_dhaka']
+        && data.deliveryCharge is number
+        && (
+          (data.deliveryZone == 'inside_dhaka' && data.deliveryCharge == 70) ||
+          (data.deliveryZone == 'outside_dhaka' && data.deliveryCharge == 100)
+        )
+        && data.subtotal is number && data.subtotal > 0 && data.subtotal <= 5000000
+        && data.totalAmount is number && data.totalAmount == data.subtotal + data.deliveryCharge
+        && data.note is string && data.note.size() <= 300
+        && data.items is list && data.items.size() >= 1 && data.items.size() <= 50
+        && data.items[0] is map
+        && data.items[0].keys().hasAll(['productId', 'title', 'price', 'quantity'])
+        && data.items[0].keys().hasOnly(['productId', 'title', 'price', 'quantity', 'imageUrl'])
+        && data.items[0].productId is string && data.items[0].productId.size() <= 128
+        && data.items[0].title is string && data.items[0].title.size() <= 120
+        && data.items[0].price is number && data.items[0].price > 0
+        && data.items[0].quantity is int && data.items[0].quantity >= 1 && data.items[0].quantity <= 99
+        && data.status in ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'addedByEmail', 'inviteId', 'role', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'addedByEmail', 'inviteId', 'role', 'createdAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
+        && isValidEmail(data.email)
+        && data.displayName is string && data.displayName.size() <= 120
+        && data.addedByEmail is string && data.addedByEmail.size() <= 160
+        && data.inviteId is string && data.inviteId.size() <= 128
+        && data.role == 'admin'
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAdminInvite(data) {
+      return data.keys().hasAll(['email', 'addedByUid', 'addedByEmail', 'createdAt'])
+        && data.keys().hasOnly(['email', 'addedByUid', 'addedByEmail', 'createdAt'])
+        && isValidEmail(data.email)
+        && data.email == data.email.lower()
+        && data.addedByUid is string && data.addedByUid.size() >= 1 && data.addedByUid.size() <= 128
+        && isValidEmail(data.addedByEmail)
+        && data.createdAt is timestamp;
+    }
+
+    // 1. Products Catalog
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create: if isAdmin()
+        && isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'category', 'regularPrice', 'price', 'shortFeature',
+          'description', 'features', 'imageUrl', 'inStock', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    // 2. Website Signed-In User Accounts (PII Isolated)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (
+        isAdmin() || (isVerifiedSignedIn() && request.auth.uid == userId)
+      );
+      allow list: if isAdmin() || (
+        isVerifiedSignedIn() && resource.data.uid == request.auth.uid
+      );
+      allow create: if isValidId(userId)
+        && isVerifiedSignedIn()
+        && request.auth.uid == userId
+        && isValidUserAccount(incoming())
+        && incoming().uid == request.auth.uid
+        && request.auth.token.email is string
+        && incoming().email == request.auth.token.email.lower()
+        && incoming().createdAt == request.time
+        && incoming().lastLoginAt == request.time;
+      allow update: if isValidId(userId)
+        && isVerifiedSignedIn()
+        && request.auth.uid == userId
+        && isValidUserAccount(incoming())
+        && incoming().uid == existing().uid
+        && request.auth.token.email is string
+        && incoming().email == request.auth.token.email.lower()
+        && incoming().createdAt == existing().createdAt
+        && incoming().lastLoginAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'email', 'displayName', 'photoURL', 'lastLoginAt'
+        ]);
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 3. Customer Saved Profiles (PII Isolated)
+    match /customers/{userId} {
+      allow get: if isValidId(userId) && (
+        isAdmin() || (isVerifiedSignedIn() && request.auth.uid == userId)
+      );
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isVerifiedSignedIn()
+        && request.auth.uid == userId
+        && isValidCustomerProfile(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isVerifiedSignedIn()
+        && request.auth.uid == userId
+        && isValidCustomerProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'email', 'name', 'phone', 'address', 'updatedAt'
+        ]);
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 4. Orders (Guest or Signed-in COD Create; Owner/Admin Read; Admin Status Update)
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && (
+        isAdmin() || (isVerifiedSignedIn() && existing().customerUid == request.auth.uid)
+      );
+      allow list: if isAdmin() || (
+        isVerifiedSignedIn() && resource.data.customerUid == request.auth.uid
+      );
+      allow create: if isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (isSignedIn() && incoming().customerUid == request.auth.uid) ||
+          (!isSignedIn() && incoming().customerUid == '')
+        );
+      allow update: if isAdmin()
+        && isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().customerUid == existing().customerUid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    // 5. Admin Registry (Bootstrapped or Invited Admins)
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (
+        isAdmin() || (isVerifiedSignedIn() && request.auth.uid == userId)
+      );
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isValidAdminUser(incoming())
+        && incoming().createdAt == request.time
+        && (
+          isAdmin() || (
+            isVerifiedSignedIn()
+            && userId == request.auth.uid
+            && incoming().uid == request.auth.uid
+            && request.auth.token.email is string
+            && incoming().email == request.auth.token.email.lower()
+            && incoming().inviteId.size() >= 1
+            && isValidId(incoming().inviteId)
+            && exists(/databases/$(database)/documents/adminInvites/$(incoming().inviteId))
+            && get(/databases/$(database)/documents/adminInvites/$(incoming().inviteId)).data.email == request.auth.token.email.lower()
+          )
+        );
+      allow update: if isAdmin()
+        && isValidId(userId)
+        && isValidAdminUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'email', 'displayName', 'addedByEmail', 'inviteId', 'role'
+        ]);
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // 6. Pending Admin Invites (Admin writes; verified matching email can query their invite)
+    match /adminInvites/{inviteId} {
+      allow get: if isValidId(inviteId) && isAdmin();
+      allow list: if isAdmin() || (
+        isVerifiedSignedIn() &&
+        request.auth.token.email is string &&
+        resource.data.email == request.auth.token.email.lower()
+      );
+      allow create: if isAdmin()
+        && isValidId(inviteId)
+        && isValidAdminInvite(incoming())
+        && incoming().addedByUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(inviteId) && isAdmin();
+    }
+  }
+}

@@ -1,0 +1,357 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A retail product displayed in the ভোক্তা-জিতাও (voktajitao) storefront catalog.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Product display title in Bangla/English"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["electronics", "cosmetics", "clothing", "problem-solving"],
+          "description": "Storefront category slug"
+        },
+        "regularPrice": {
+          "type": "number",
+          "description": "Original regular price before discount (BDT)"
+        },
+        "price": {
+          "type": "number",
+          "description": "Current discounted offer price (BDT)"
+        },
+        "shortFeature": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 140,
+          "description": "Concise 1-line highlight shown in details and quick summary"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 2000,
+          "description": "Detailed product description shown in the Product Details modal"
+        },
+        "features": {
+          "type": "array",
+          "description": "Up to 8 key feature bullet strings"
+        },
+        "imageUrl": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 500,
+          "description": "Local generated asset path or verified image URL"
+        },
+        "inStock": {
+          "type": "boolean",
+          "description": "Whether the product is currently available for order"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp"
+        }
+      },
+      "required": [
+        "title",
+        "category",
+        "regularPrice",
+        "price",
+        "shortFeature",
+        "description",
+        "features",
+        "imageUrl",
+        "inStock",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Signed-in website user account record tracking everyone who opened an account / logged in via Google.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+          "description": "Verified Gmail address (lowercased)"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Google account display name"
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Google profile avatar URL"
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["google.com"],
+          "description": "Authentication provider ID"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "First login timestamp"
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Most recent login timestamp"
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "displayName",
+        "photoURL",
+        "provider",
+        "createdAt",
+        "lastLoginAt"
+      ]
+    },
+    "CustomerProfile": {
+      "title": "CustomerProfile",
+      "description": "Returning customer shipping details synced to their Google account for 1-tap repeat orders.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Customer Gmail address"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Customer full name"
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 25,
+          "pattern": "^[0-9+\\-\\s()]{6,25}$",
+          "description": "Customer phone number"
+        },
+        "address": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 300,
+          "description": "Full delivery address"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last profile update"
+        }
+      },
+      "required": ["uid", "email", "name", "phone", "address", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Cash-on-Delivery customer order with auto-calculated Dhaka (70) or Outside Dhaka (100) delivery charge.",
+      "type": "object",
+      "properties": {
+        "customerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID if signed in, or empty string for guest checkout"
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Recipient full name"
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 25,
+          "pattern": "^[0-9+\\-\\s()]{6,25}$",
+          "description": "Recipient contact number"
+        },
+        "address": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 300,
+          "description": "Recipient delivery address"
+        },
+        "deliveryZone": {
+          "type": "string",
+          "enum": ["inside_dhaka", "outside_dhaka"],
+          "description": "Auto-detected delivery zone from address"
+        },
+        "deliveryCharge": {
+          "type": "number",
+          "description": "70 for inside_dhaka, 100 for outside_dhaka"
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "Sum of cart line items in BDT"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "subtotal + deliveryCharge"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Optional delivery instruction"
+        },
+        "items": {
+          "type": "array",
+          "description": "1 to 50 ordered items"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+          "description": "Order fulfillment status"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": [
+        "customerUid",
+        "customerName",
+        "phone",
+        "address",
+        "deliveryZone",
+        "deliveryCharge",
+        "subtotal",
+        "totalAmount",
+        "note",
+        "items",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized store administrator registry document keyed by UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "addedByEmail": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "inviteId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "displayName",
+        "addedByEmail",
+        "inviteId",
+        "role",
+        "createdAt"
+      ]
+    },
+    "AdminInvite": {
+      "title": "AdminInvite",
+      "description": "Pending admin invitation by Gmail so newly added admins get auto-activated upon first sign-in.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        },
+        "addedByUid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "addedByEmail": {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "addedByUid", "addedByEmail", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Public storefront product catalog; writable only by verified admins."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Website signed-in user accounts list; owners can upsert their own login record, admins can view all."
+    },
+    "/customers/{userId}": {
+      "schema": { "$ref": "#/entities/CustomerProfile" },
+      "description": "Saved customer name, phone, and address synced to their Google account."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer COD orders; creatable with strict validation, readable only by owner or admin."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Admin role registry documents."
+    },
+    "/adminInvites/{inviteId}": {
+      "schema": { "$ref": "#/entities/AdminInvite" },
+      "description": "Invited admin Gmail list; verified matching users can auto-activate their admin role on sign-in."
+    }
+  }
+}

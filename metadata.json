@@ -1,0 +1,8 @@
+{
+  "name": "voktajitao — ভোক্তা-জিতাও",
+  "description": "সাশ্রয়ী দামে ভোক্তার স্বস্তি — ইলেকট্রনিক্স, কসমেটিক্স, ক্লথিং ও হট প্রবলেম সলভিং প্রোডাক্টের সহজ অনলাইন শপ।",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
